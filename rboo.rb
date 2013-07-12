@@ -26,45 +26,45 @@
 PVERSION = "Version 2.9, 10/24/2008"
 
 module RBeautify
-	class RBoo
-	end
-	class << RBoo
-		private :new
-		
-		def text(text)
-			array = case text
-			when Array then text
-			when String then text.split(/\n/)
-			else raise 'Invalid argument: must be string array or text'
-			end
-			def array.each_line(&block)
-				self.each(&block)
-			end
-			new(array)
-		end
-		
-		def file(file)
-			file = case file
-			when Text
-			when File
-			else raise 'Invalid argument: must be file object or name'
-			end
-			new(file)
-		end
-	end
+  class RBoo
+  end
+  class << RBoo
+    private :new
+
+    def text(text)
+      array = case text
+      when Array then text
+      when String then text.split(/\n/)
+      else raise 'Invalid argument: must be string array or text'
+      end
+      def array.each_line(&block)
+        self.each(&block)
+      end
+      new(array)
+    end
+
+    def file(file)
+      file = case file
+      when Text
+      when File
+      else raise 'Invalid argument: must be file object or name'
+      end
+      new(file)
+    end
+  end
 end
 
 RBeautify::RBoo.class_eval do
-	TABSTR = " "
-	TABSIZE = 2
-	
+  TABSTR = " "
+  TABSIZE = 2
+
   # indent regexp tests
   INDENTS = [
     /^module\b/,
     /^class\b/,
     /(=\s*|^)if\b/,  #changed
     #/^if\b/,
-		#/^\@{0,2}[\w\.]*[\s\t]*\=[\s\t]*if\b/,
+    #/^\@{0,2}[\w\.]*[\s\t]*\=[\s\t]*if\b/,
     /(=\s*|^)until\b/,
     /(=\s*|^)for\b/,
     /(=\s*|^)unless\b/, #changed
@@ -97,15 +97,15 @@ RBeautify::RBoo.class_eval do
     /^[^\(]*\)/  #added
   ]
 
-	attr_reader :tab_count
-	attr_reader :line_source
-	
-	def initialize(line_source)
-		raise "Source is not a line source" unless line_source.methods.include?(:each_line)
-		@line_source = line_source
-	end
-	
-	def init_vars
+  attr_reader :tab_count
+  attr_reader :line_source
+
+  def initialize(line_source)
+    raise "Source is not a line source" unless line_source.methods.include?(:each_line)
+    @line_source = line_source
+  end
+
+  def init_vars
     @comment_block = false
     @inside_here_doc_term = nil
     @source_code_end = false
@@ -113,7 +113,7 @@ RBeautify::RBoo.class_eval do
     @multi_line_string = ""
     @tab_count = 0
     @output = []
-	end
+  end
 
   def indention(tabs = @tab_count)
     tabs <= 0 ? "" : TABSTR * TABSIZE * tabs
@@ -123,36 +123,36 @@ RBeautify::RBoo.class_eval do
     line.strip!
     line.length > 0 ? indention(tabs) + line : line
   end
-	
-	def source_code_ended?() @source_code_end end
-	def after_source_end?() @source_code_end end
-	def inside_comment_block?() @comment_block end
-	def inside_here_doc?() !!@inside_here_doc_term end
 
-	END_SOURCE_CODE_REGEX = /^__END__/
-	CONTINUING_LINE_REGEX = /^(.*)\\\s*(#.*)?$/  
-	COMMENT_LINE_REGEX = /^\s*#/
-	HERE_DOC_REGEX = /(=|\{|\bdo|^)\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
-	HERE_DOC_START_REGEX = /^\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
+  def source_code_ended?() @source_code_end end
+  def after_source_end?() @source_code_end end
+  def inside_comment_block?() @comment_block end
+  def inside_here_doc?() !!@inside_here_doc_term end
 
-	# careful! here doc can be confused with array assignment, ie array<<'RUBY'
-	# this may not be useful because we want to 
-	
-	def scan_here_doc_term(line)
-		scan = line.scan(HERE_DOC_START_REGEX).flatten[2..-1] #yields array or nil
-		scan && scan.compact.first
-	end
+  END_SOURCE_CODE_REGEX = /^__END__/
+  CONTINUING_LINE_REGEX = /^(.*)\\\s*(#.*)?$/
+  COMMENT_LINE_REGEX = /^\s*#/
+  HERE_DOC_REGEX = /(=|\{|\bdo|^)\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
+  HERE_DOC_START_REGEX = /^\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
+
+  # careful! here doc can be confused with array assignment, ie array<<'RUBY'
+  # this may not be useful because we want to
+
+  def scan_here_doc_term(line)
+    scan = line.scan(HERE_DOC_START_REGEX).flatten[2..-1] #yields array or nil
+    scan && scan.compact.first
+  end
   def is_continuing_line?(line)
-  	!is_comment_line?(line) && line =~ CONTINUING_LINE_REGEX
+    !is_comment_line?(line) && line =~ CONTINUING_LINE_REGEX
   end
   def is_comment_line?(line)
-  	line =~ COMMENT_LINE_REGEX
+    line =~ COMMENT_LINE_REGEX
   end
-	def is_here_doc_start?(line)
-		line =~ HERE_DOC_START_REGEX
-	end
+  def is_here_doc_start?(line)
+    line =~ HERE_DOC_START_REGEX
+  end
 
-	def output_current_line
+  def output_current_line
     unless @multi_line_array.empty?
       @multi_line_array.each do |ml|
         @output << indent_line(ml)
@@ -161,94 +161,94 @@ RBeautify::RBoo.class_eval do
       @multi_line_string = ""
     else
       @output << indent_line(@current_line)
-    end	
-	end
-	
-  def indent
-  	init_vars
-    @line_source.each_line do |line|
-    	line.chomp!
-			debugger
-    	@current_line = line
-    	
-    	#special cases & conditions
-    	if source_code_ended?
-    		output_current_line
-    		next
-    	end
+    end
+  end
 
-			if inside_here_doc?
-				if line =~ /^\s*#{@inside_here_doc_term}\b/
-      		@inside_here_doc_term = nil
-				end
-				output_current_line
-				next
-			elsif inside_comment_block?
-		    if(line =~ /^=end/)
-    		  @comment_block = false
-    		end
-				output_current_line
-				next
-    	else #not inside block comment or here doc
-				#not here -- instead test as possible double on a line
-      	#if is_here_doc_start?(line)
+  def indent
+    init_vars
+    @line_source.each_line do |line|
+      line.chomp!
+      debugger
+      @current_line = line
+
+      #special cases & conditions
+      if source_code_ended?
+        output_current_line
+        next
+      end
+
+      if inside_here_doc?
+        if line =~ /^\s*#{@inside_here_doc_term}\b/
+          @inside_here_doc_term = nil
+        end
+        output_current_line
+        next
+      elsif inside_comment_block?
+        if(line =~ /^=end/)
+          @comment_block = false
+        end
+        output_current_line
+        next
+      else #not inside block comment or here doc
+        #not here -- instead test as possible double on a line
+        #if is_here_doc_start?(line)
         #	@here_doc_term = scan_here_doc_term(line)
         #	@inside_here_doc = @here_doc_term.size > 0
-      	#end
+        #end
 
-    		if line =~ END_SOURCE_CODE_REGEX
-    			@source_code_end = true
-    			output_current_line
-    			next
-    		end
-				if line =~ /^=begin\b/
-					@comment_block = true
-					output_current_line
-					next
-				end
-				if is_here_doc_start?(line)
-					@inside_here_doc_term = scan_here_doc_term(line)
-					output_current_line
-					next
-				end
-				
-    		if is_continuing_line?(line)
-        	@multi_line_array.push line
-        	@multi_line_string += line.sub(CONTINUATION_REGEX,'\1')
-        	next
-      	end
+        if line =~ END_SOURCE_CODE_REGEX
+          @source_code_end = true
+          output_current_line
+          next
+        end
+        if line =~ /^=begin\b/
+          @comment_block = true
+          output_current_line
+          next
+        end
+        if is_here_doc_start?(line)
+          @inside_here_doc_term = scan_here_doc_term(line)
+          output_current_line
+          next
+        end
+
+        if is_continuing_line?(line)
+          @multi_line_array.push line
+          @multi_line_string += line.sub(CONTINUATION_REGEX,'\1')
+          next
+        end
       end
-	
-	    if(@multi_line_string.length > 0)
-  	    @multi_line_array.push line
-    	  @multi_line_string += line.sub(/^(.*)\\\s*$/,'\1')
-    	end
-    	eval_line (@multi_line_string.length > 0 ? @multi_line_string : line).strip
+
+      if(@multi_line_string.length > 0)
+        @multi_line_array.push line
+        @multi_line_string += line.sub(/^(.*)\\\s*$/,'\1')
+      end
+      eval_line (@multi_line_string.length > 0 ? @multi_line_string : line).strip
     end
-        
+
     STDERR.puts "Error: indent/outdent mismatch: #{@tab_count}." if @tab_count != 0
     (@output << "\n").join("\n") #, @tab_count != 0
   end
 
-	INLINE_CLOSURES = [
+  INLINE_CLOSURES = [
     /\{[^\{]*?\}/,
     /\[[^\[]*?\]/,
-		/'.*?'/,
-		/".*?"/,
-		/\`.*?\`/,
-		/\([^\(]*?\)/,
-		/\/.*?\//,
-		/%r(.).*?\1/
-	]
+    /'.*?'/,
+    /".*?"/,
+    /\`.*?\`/,
+    /\([^\(]*?\)/,
+    /\/.*?\//,
+    /%r(.).*?\1/
+  ]
 
-	def eval_line(line)    
+  def eval_line(line)
     comment_line = (line =~ /^#/)
-    if(!comment_line)	
+    if(!comment_line)
       # throw out sequences that will
       # only sow confusion
-			INLINE_CLOSURES.each do |closure|
-				while line.gsub!(closure); end
-			end
+      INLINE_CLOSURES.each do |closure|
+        while line.gsub!(closure); end
+      end
       # delete end-of-line comments
       line.sub!(/#[^\"]+$/,"")
       # convert quotes
