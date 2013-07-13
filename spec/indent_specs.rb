@@ -1,70 +1,4 @@
 require_relative './spec_helper'
-include RBeautify
-
-describe RBoo do
-
-	describe "indenting HERE DOC without terminator" do
-		rboo = RBoo.text("<<-RUBY")
-		rboo.indent
-		it "indicates inside_here_doc" do
-			rboo.inside_here_doc?.should be_true
-		end		
-	end
-	describe "indenting HERE DOC with indented terminator" do
-		code = %q{
-			<<-RUBY
-			RUBY
-		}
-		rboo = RBoo.text(code)
-		rboo.indent
-		it "indicates not inside_here_doc" do
-			rboo.inside_here_doc?.should be_false
-		end
-	end
-	
-	describe "indenting unterminated block comment" do
-		rboo = RBoo.text("=begin")
-		rboo.indent
-		it "indicates inside comment" do
-			rboo.inside_block_comment?.should be_true
-		end
-	end
-
-	describe "indenting terminated block comment" do
-		rboo = RBoo.text %q{
-				=begin
-				=end
-			}.left_adjust(0)
-		rboo.indent
-		it "indicates not inside comment" do
-			rboo.inside_block_comment?.should_not be_true
-		end
-	end
-	
-	describe "indenting with __END__ inside block comments" do
-		rboo = RBoo.text %q{
-				=begin
-				__END__
-				=end
-			}.left_adjust(0)
-		rboo.indent
-		it "does not indicate end of source" do
-			rboo.after_source_end?.should_not be_true
-		end
-	end
-	
-	describe "indenting with __END__ inside HERE DOC" do
-		rboo = RBoo.text %q{
-			<<-RUBY
-			__END__
-			RUBY
-		}.left_adjust(0)
-		
-		it "does not indicate end of source" do
-			rboo.after_source_end?.should_not be_true
-		end		
-	end
-end
 
 describe "Indent" do
 
@@ -80,8 +14,25 @@ describe "Indent" do
 			result.should double_indent(:inner_content)
 		end
 	end
-
-	describe "if-condition statement" do
+	
+	describe "nested if-statement" do
+		result = %q{
+			if something?
+			single_true_condition
+			if other?
+			double_true_condition
+			end
+			end
+		}.indent
+		it "double indents the double_true_condition" do
+			result.should double_indent(:double_true_condition)	
+		end
+		it "single indents the 'if other?' line" do
+			result.should single_indent('if other?')
+		end
+	end
+	
+	describe "if-statement" do
 		result = %q{
 			if something? 
 			true_condition
@@ -128,6 +79,71 @@ describe "Indent" do
 #	describe "double indention on same line" do
 	
 #	end
+
+describe RBoo do
+
+	describe "indenting HERE DOC without terminator" do
+		rboo = RBoo.text("<<-RUBY")
+		rboo.indent
+		it "indicates inside_here_doc" do
+			rboo.inside_here_doc?.should be_true
+		end		
+	end
+	describe "indenting HERE DOC with indented terminator" do
+		code = %q{
+			<<-RUBY
+			RUBY
+		}
+		rboo = RBoo.text(code)
+		rboo.indent
+		it "indicates not inside_here_doc" do
+			rboo.inside_here_doc?.should be_false
+		end
+	end
+	
+	describe "indenting unterminated block comment" do
+		rboo = RBoo.text("=begin")
+		rboo.indent
+		it "indicates inside comment" do
+			rboo.inside_comment_block?.should be_true
+		end
+	end
+
+	describe "indenting terminated block comment" do
+		rboo = RBoo.text %q{
+				=begin
+				=end
+			}.left_adjust(0)
+		rboo.indent
+		it "indicates not inside comment" do
+			rboo.inside_comment_block?.should_not be_true
+		end
+	end
+	
+	describe "indenting with __END__ inside block comments" do
+		rboo = RBoo.text %q{
+				=begin
+				__END__
+				=end
+			}.left_adjust(0)
+		rboo.indent
+		it "does not indicate end of source" do
+			rboo.source_code_ended?.should_not be_true
+		end
+	end
+	
+	describe "indenting with __END__ inside HERE DOC" do
+		rboo = RBoo.text %q{
+			<<-RUBY
+			__END__
+			RUBY
+		}.left_adjust(0)
+		rboo.indent
+		it "does not indicate end of source" do
+			rboo.source_code_ended?.should_not be_true
+		end		
+	end
+end
 
 end
 

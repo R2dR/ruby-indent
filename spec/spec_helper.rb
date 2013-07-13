@@ -1,5 +1,6 @@
 require 'rspec'
 require_relative '../rboo'
+include RBeautify
 
 module IndentationMethods
 	def test_indentation?(result, selector, length)
