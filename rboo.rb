@@ -1,7 +1,5 @@
 #!/usr/bin/env ruby
 
-####!/usr/bin/ruby -w
-
 =begin
 /***************************************************************************
  *   Copyright (C) 2008, Paul Lutus                                        *
@@ -58,14 +56,14 @@ String.class_eval do
     /\/.*?\//,
     /%r(.).*?\1/
   ]
-  def String.purge_closures(line)
+  def String.expunge_closures(line)
     INLINE_CLOSURES.inject(line.dup) do |_line, closure|
-      while _line.gsub!(closure, ""); end
+      while _line.gsub!(closure, " "); end
       _line
-    end  
+    end
   end
-  def purged
-  	@purged ||= String.purge_closures(self)
+  def expunged
+  	@expunged ||= String.expunge_closures(self)
 	end
 end
 
@@ -168,7 +166,7 @@ RBeautify::RBoo.class_eval do
   end
   def is_continuing_line?(line)
   	#first eliminate inline closures that may contain comment char '#'
-  	line.purged =~ /^[^#]*\\\s*(#.*)?$/
+  	line.expunged =~ /^[^#]*\\\s*(#.*)?$/
   end
   def is_comment_line?(line)
     line =~ COMMENT_LINE_REGEX
@@ -260,13 +258,13 @@ RBeautify::RBoo.class_eval do
     when is_here_doc_start?(line)
       @inside_here_doc_term = scan_here_doc_term(line)
       output_line(line, :indent=>true)
-    when (spaces = line.scan(/^(\s*)#/).flatten.first)
+    when (spaces = original_line.scan(/^(\s*)#/).flatten.first)
     	#comment lines
       output_line(line, :indent=>(spaces.length > 0))
     else
       # throw out sequences that will
       # only sow confusion
-      line = line.purged
+      line = line.expunged
       # delete end-of-line comments
       line.sub!(/#[^\"]+$/,"")
       # convert quotes
@@ -293,21 +291,23 @@ RBeautify::RBoo.class_eval do
       end    
     end
 	end
-	    
+end
+
+module RBeautify	    
   def RBeautify.indent_file(path)
   	error = false
     if(path == '-') # stdin source
     	rboo = RBeautify::RBoo.text(STDIN.read)
     	result = rboo.indent
     	error ||= rboo.error?
-    	STDERR.puts "Error: indent/outdent mismatch: #{@tab_count}." if rboo.tab_count != 0
+    	STDERR.puts "Error: indent/outdent mismatch: #{rboo.tab_count}." if rboo.tab_count != 0
       print result
     else # named file source
       source = File.read(path)
       rboo = RBeautify::RBoo.text(source)
       result = rboo.indent
       error ||= rboo.error?
-    	STDERR.puts "Error: indent/outdent mismatch: #{@tab_count}." if rboo.tab_count != 0
+    	STDERR.puts "Error: indent/outdent mismatch: #{rboo.tab_count}." if rboo.tab_count != 0
       if(source != result)
         # make a backup copy
         File.open(path + "~","w") { |f| f.write(source) }
