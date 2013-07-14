@@ -3,10 +3,10 @@ require_relative './spec_helper'
 describe "Indent" do
   describe "method call with multiline hash" do
     indent <<-EXAMPLE
-		callmethod({
-			opt1: something,
-			opt2: another thing
-		})
+    callmethod({
+      opt1: something,
+      opt2: another thing
+    })
     EXAMPLE
     it "does not mismatch" do
       rboo.should_not mismatch
@@ -15,9 +15,9 @@ describe "Indent" do
 
   describe "single-line methods" do
     indent <<-EXAMPLE
-			class MyClass
-			def mymethod() something end
-			end
+      class MyClass
+      def mymethod() something end
+      end
     EXAMPLE
     it "does not mismatch" do
       rboo.should_not mismatch
@@ -69,12 +69,12 @@ describe "Indent" do
 
   describe "do <<-HEREDOC block" do
     indent <<-EXAMPLE
-			somemethod do <<-HEREDOC
-			inside_here_doc
-			HEREDOC
-			outside_here_doc
-			end
-			outside_do_block
+      somemethod do <<-HEREDOC
+      inside_here_doc
+      HEREDOC
+      outside_here_doc
+      end
+      outside_do_block
     EXAMPLE
     it "finishes without mismatch" do
       rboo.should_not mismatch
@@ -96,11 +96,11 @@ describe "Indent" do
 
   describe "do %Q{" do
     indent <<-EXAMPLE
-			somemethod do %Q{
-			inner_content
-			}
-			end
-			outside_do_block
+      somemethod do %Q{
+      inner_content
+      }
+      end
+      outside_do_block
     EXAMPLE
 
     it "finishes without mismatch" do
@@ -110,12 +110,12 @@ describe "Indent" do
 
   describe "nested if-statement" do
     indent <<-EXAMPLE
-			if something?
-			single_true_condition
-			if other?
-			double_true_condition
-			end
-			end
+      if something?
+      single_true_condition
+      if other?
+      double_true_condition
+      end
+      end
     EXAMPLE
 
     it "double indents the double_true_condition" do
@@ -129,11 +129,11 @@ describe "Indent" do
 
   describe "if-statement" do
     indent <<-EXAMPLE
-			if something? 
-			true_condition
-			else
-			false_condition
-			end
+      if something?
+      true_condition
+      else
+      false_condition
+      end
     EXAMPLE
 
     it "doesn't indent if, else and end" do
@@ -151,12 +151,12 @@ describe "Indent" do
 
   describe "multi-line method call" do
     indent <<-EXAMPLE
-			def method(param1,
-			param2,
-			param3)
-			method_content
-			end
-			line_after
+      def method(param1,
+      param2,
+      param3)
+      method_content
+      end
+      line_after
     EXAMPLE
 
     it "doesn't indent the method def" do
@@ -179,7 +179,7 @@ describe "Indent" do
   describe "here doc with assignment" do
     indent %q{
       out = <<-HEREDOC
-			inside
+      inside
       HEREDOC
       outside
     }.left_adjust(0)
@@ -260,8 +260,8 @@ describe RBoo do
 
   describe "indenting terminated block comment" do
     indent %q{
-				=begin
-				=end
+        =begin
+        =end
     }.left_adjust(0)
     it "indicates not inside comment" do
       rboo.inside_comment_block?.should_not be_true
@@ -270,9 +270,9 @@ describe RBoo do
 
   describe "indenting with __END__ inside block comments" do
     indent %q{
-				=begin
-				__END__
-				=end
+        =begin
+        __END__
+        =end
     }.left_adjust(0)
     it "does not indicate end of source" do
       rboo.inside_source_code?.should be_true
@@ -282,7 +282,7 @@ describe RBoo do
   describe "indenting with __END__ inside HERE DOC" do
     indent %q{
       <<-HEREDOC
-			__END__
+      __END__
       HEREDOC
     }.left_adjust(0)
     it "does not indicate end of source" do
@@ -293,8 +293,8 @@ describe RBoo do
   describe "indenting here doc with end inside" do
     indent %q{
       out = <<-HEREDOC
-			something
-			end
+      something
+      end
       HEREDOC
     }
     it "does not indicate mismatch error" do

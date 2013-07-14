@@ -39,7 +39,7 @@ module RBeautify
     /^class\b/,
     /(=\s*|^)if\b/,  #changed
     #/^if\b/,
-		#/^\@{0,2}[\w\.]*[\s\t]*\=[\s\t]*if\b/,
+    #/^\@{0,2}[\w\.]*[\s\t]*\=[\s\t]*if\b/,
     /(=\s*|^)until\b/,
     /(=\s*|^)for\b/,
     /(=\s*|^)unless\b/, #changed

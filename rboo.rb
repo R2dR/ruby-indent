@@ -18,7 +18,7 @@
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
- ***************************************************************************/ 
+ ***************************************************************************/
  **Rework of original RBeautify by R2dR
 =end
 
@@ -73,11 +73,11 @@ RBeautify::RBoo.class_eval do
   TABSIZE = 2
   OUT=-1
   IN=1
-	
-	#In and Out indentations
-	#predents are tabs added/subtracted before the line is printed
-	#postdents are the tabs added/subtracted after the line is printed
-	DENTS = {
+
+  #In and Out indentations
+  #predents are tabs added/subtracted before the line is printed
+  #postdents are the tabs added/subtracted after the line is printed
+  DENTS = {
     /^end\b/ => {:predent=>OUT},
     /\send\b/ => {:postdent=>OUT},
     /\{/ => {:postdent=>IN}, #from /\{[^\}]*$/
@@ -90,8 +90,8 @@ RBeautify::RBoo.class_eval do
     /.(\])/ => {:postdent=>OUT},
     /.(\))/ => {:postdent=>OUT},
     /^module\b/ => {:postdent=>IN},
-    /^class\b/ => {:postdent=>IN}, 
-    /(?:=\s*|^)if\b/ => {:postdent=>IN}, #/(=\s*|^)if\b/ => :indent,  
+    /^class\b/ => {:postdent=>IN},
+    /(?:=\s*|^)if\b/ => {:postdent=>IN}, #/(=\s*|^)if\b/ => :indent,
     /(?:=\s*|^)until\b/ => {:postdent=>IN}, #/(=\s*|^)until\b/ => :indent,
     /(?:=\s*|^)for\b/ => {:postdent=>IN},
     /(?:=\s*|^)unless\b/ => {:postdent=>IN},
@@ -105,7 +105,7 @@ RBeautify::RBoo.class_eval do
     /^elsif\b/ => {:predent=>OUT, :postdent=>IN},
     /^ensure\b/ => {:predent=>OUT, :postdent=>IN},
     /\bwhen\b/ => {:predent=>OUT, :postdent=>IN},
-	}
+  }
   #/\bthen\b/ => {:postdent=>IN}, #???
 
   attr_reader :tab_count
@@ -141,15 +141,15 @@ RBeautify::RBoo.class_eval do
 
   def is_continuing_line?(line)
     line.expunge =~ /^[^#]*\\\s*(#.*)?$/
-    #first use expunge to eliminate inline closures 
+    #first use expunge to eliminate inline closures
     #that may contain comment char '#'
   end
   def is_comment_line?(line)
     line =~ /^\s*#/
   end
   def is_end_source_line?(line)
-  	line =~ /^__END__/
-  end  
+    line =~ /^__END__/
+  end
   def is_here_doc_start?(line)
     line =~ HERE_DOC_REGEX
   end
@@ -157,7 +157,7 @@ RBeautify::RBoo.class_eval do
     line.scan(HERE_DOC_REGEX).flatten.compact.first
   end
   def is_here_doc_terminator?(line)
-    line =~ /^\s*#{@inside_here_doc_term}\b/  	
+    line =~ /^\s*#{@inside_here_doc_term}\b/
   end
 
   def output_line(line, opts={:indent=>false})
@@ -189,7 +189,7 @@ RBeautify::RBoo.class_eval do
     init_vars
     @line_source.each_line do |line|
       line.chomp!
-      
+
       #special cases & conditions
       if !inside_source_code?
         output_line(line, :indent=>false)
@@ -256,10 +256,10 @@ RBeautify::RBoo.class_eval do
       output_line(original_line, :indent=>(spaces.length > 0))
       return
     end
-    
+
     lines = original_line.expunge.squeeze(';').split(/;/).map(&:strip)
     lines.each_with_index do |line, index|
-    	lines[index] = " #{lines[index]}" if index > 0
+      lines[index] = " #{lines[index]}" if index > 0
     end
     counts = Struct.new(:predents, :postdents).new(0,0)
     lines.each do |line|
@@ -272,35 +272,35 @@ RBeautify::RBoo.class_eval do
       line.gsub!(/\\\"/,"'")
 
       #find first occurrence of indent, outdent, postdent or inside-special-case
-			_scan_line = line.dup      
+      _scan_line = line.dup
       loop do
         first = Struct.new(:pos, :regex).new(_scan_line.length + 1)
         DENTS.keys.each do |regex|
-        	if (pos = (_scan_line =~ regex)) && line =~ regex && pos < first.pos
-        		first.regex = regex
-        		first.pos = pos
-        	end
+          if (pos = (_scan_line =~ regex)) && line =~ regex && pos < first.pos
+            first.regex = regex
+            first.pos = pos
+          end
         end
         if (pos = (_scan_line =~ HERE_DOC_REGEX)) && line =~ HERE_DOC_REGEX && pos < first.pos
           first.regex = :heredoc
           first.pos = pos
         end
 
-				case first.regex
-				when nil then break
-				when :heredoc
-        	@inside_here_doc_term = scan_here_doc_term(_scan_line)
-        	counts.postdents += 1
-        	break
+        case first.regex
+        when nil then break
+        when :heredoc
+          @inside_here_doc_term = scan_here_doc_term(_scan_line)
+          counts.postdents += 1
+          break
         else
-        	DENTS[first.regex].each do |type, count|
-		        case type
-  		      when :predent then counts.predents += count
-    		    when :postdent then counts.postdents += count
-	      	  end
-	      	end
+          DENTS[first.regex].each do |type, count|
+            case type
+            when :predent then counts.predents += count
+            when :postdent then counts.postdents += count
+            end
+          end
         end
-        
+
         #remove the regex from the _scan_line
         #MUST sub with a space, not a blank!
         _scan_line = _scan_line.sub(first.regex, ' ')
