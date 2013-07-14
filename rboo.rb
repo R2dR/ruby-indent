@@ -62,7 +62,7 @@ String.class_eval do
       _line
     end
   end
-  def expunged
+  def expunge
   	@expunged ||= String.expunge_closures(self)
 	end
 end
@@ -155,18 +155,19 @@ RBeautify::RBoo.class_eval do
   END_SOURCE_CODE_REGEX = /^__END__/
   CONTINUING_LINE_REGEX = /^(.*)\\\s*(#.*)?$/
   COMMENT_LINE_REGEX = /^\s*#/
-  HERE_DOC_REGEX = /(?:=|\{|\bdo|^)\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
-  HERE_DOC_START_REGEX = /^\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
+	HERE_DOC_REGEX = /(?:(?:=|^)\s*<<-?|<<-)\s*(?:'([^'\s]+)|"([^"\s]+)|([^\s]+))/
+	#others i've tried
+  #HERE_DOC_REGEX = /(?:=|\{|\bdo|^)\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
+  #HERE_DOC_START_REGEX = /^\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
   # careful! here doc can be confused with array assignment, ie array<<'RUBY'
   # this may not be useful because we want to
 
   def scan_here_doc_term(line)
-    scan = line.scan(HERE_DOC_REGEX).flatten[1..-1] #yields array or nil
-    scan && scan.compact.first
+    line.scan(HERE_DOC_REGEX).flatten.compact.first
   end
   def is_continuing_line?(line)
   	#first eliminate inline closures that may contain comment char '#'
-  	line.expunged =~ /^[^#]*\\\s*(#.*)?$/
+  	line.expunge =~ /^[^#]*\\\s*(#.*)?$/
   end
   def is_comment_line?(line)
     line =~ COMMENT_LINE_REGEX
@@ -211,6 +212,7 @@ RBeautify::RBoo.class_eval do
         if line =~ /^\s*#{@inside_here_doc_term}\b/
           @inside_here_doc_term = nil
           output_line(line, :indent=>true)
+          @tab_indent -= 1
         else
 	        output_line(line, :indent=>false)
 	      end
@@ -229,7 +231,7 @@ RBeautify::RBoo.class_eval do
         next
       end
       
-      eval_indentation concat_continued_lines(line)
+      eval_source_line concat_continued_lines(line)
     end
 
 		output
@@ -242,56 +244,100 @@ RBeautify::RBoo.class_eval do
       str += item.sub(CONTINUING_LINE_REGEX, '\1')
     end
   end
-  
-  def eval_indentation(original_line)
-  	line = original_line.strip
-		#lines = original_line.purged.squeeze(';').split(/;/).map(&:strip)
-		#counts = Struct.new(:indents, :outdents, :post_outdents).new
+	
+  def eval_source_line(original_line)
+  	if original_line.empty?
+  		output_line("", :indent=>false)
+  		return
+  	end
+  	debugger
+  	stripline = original_line.strip
+  	#guard for special beginning-of-line cases that void further indentation analysis
     case
-    when line.empty?
-    	output_line("", :indent=>false)
-    when line =~ END_SOURCE_CODE_REGEX
+    when stripline =~ END_SOURCE_CODE_REGEX
       @inside_source_code = false
-      output_line(line, :indent=>false)
-    when line =~ /^=begin\b/
+      output_line(original_line, :indent=>false)
+  		return
+    when stripline =~ /^=begin\b/ 
       @inside_comment_block = true
-      output_line(line, :indent=>false)
-    when is_here_doc_start?(line)
-      @inside_here_doc_term = scan_here_doc_term(line)
-      output_line(line, :indent=>true)
+      output_line(original_line, :indent=>false)
+      return
+    when is_here_doc_start?(stripline)
+    	#not only a beginning case but also an inside case
+      @inside_here_doc_term = scan_here_doc_term(stripline)
+      output_line(original_line, :indent=>true)
+      @tab_indent += 1
+      return
     when (spaces = original_line.scan(/^(\s*)#/).flatten.first)
     	#comment lines
-      output_line(line, :indent=>(spaces.length > 0))
-    else
-      # throw out sequences that will
-      # only sow confusion
-      line = line.expunged
+      output_line(original_line, :indent=>(spaces.length > 0))
+      return
+		end  	
+  	
+		lines = original_line.expunge.squeeze(';').split(/;/).map(&:strip)		
+		counts = Struct.new(:indents, :outdents, :postdents).new
+		lines.each do |line|
+			next if line.empty?
+			break if line =~ /^\s*#/
+						
       # delete end-of-line comments
       line.sub!(/#[^\"]+$/,"")
       # convert quotes
       line.gsub!(/\\\"/,"'")
-      OUTDENTS.each do |regex|
-        if line =~ regex
-          @tab_count -= 1
-          break
-        end
-      end
-	   
-    	output_line(original_line, :indent=>true)
-    	POST_OUTDENTS.each do |re|
-    		if line =~ re
-    			@tab_count -= 1
-    			break
-    		end
-    	end
-      INDENTS.each do |re|
-        if(line =~ re && !(line =~ /\s+end\s*$/))
-          @tab_count += 1
-          break
-        end
-      end    
-    end
-	end
+    
+    	#find first occurrence of indent, outdent, postdent or inside-special-case
+    	_scan_line = line.dup
+    	loop do
+    		first = Struct.new(:pos, :type, :regex).new(_scan_line.length + 1)
+      	OUTDENTS.each do |regex|
+        	if (pos = (line =~ regex)) < first.pos
+        		first.regex = regex
+	        	first.type = :outdent 
+	        	first.pos = pos
+	      	end
+      	end
+      	INDENTS.each do |regex|
+      		if (pos = (line =~ regex)) < first.pos
+        		first.regex = regex
+      			first.type = :indent
+      			first.pos = pos
+      		end
+      	end
+      	POST_OUTDENTS.each do |regex|
+      		if (pos = (line =~ regex)) < first.pos
+        		first.regex = regex
+      			first.type = :postdent
+      			first.pos = pos
+      		end
+				end
+				hd_regex = /(?:=\s*<<-?|<<-)\s*('([^'\s]+)|"([^"\s]+)|([^\s]+))/
+				if (pos = (line =~ hd_regex)) < first.pos
+       		first.regex = hd_regex
+					first.type = :heredoc
+					first.pos = pos
+				end
+				
+				break if first.type.nil? || first.regex.nil?
+				case first.type
+				when :indent then counts.indents += 1
+				when :outdent then counts.outdents += 1
+				when :postdent then counts.postdents += 1
+				when :heredoc
+  	    	@inside_here_doc_term = scan_here_doc_term(_scan_line)
+	      	counts.indents += 1
+	      	break
+				end
+				
+				#remove the regex from the _scan_line
+				_scan_line = _scan_line[first.pos..-1]
+				_scan_line = _scan_line.sub(first.regex, '')
+			end
+			
+			@tab_count -= counts.outdents			
+   		output_line(original_line, :indent=>true)
+   		@tab_count += counts.indents - counts.postdents
+   	end
+  end
 end
 
 module RBeautify	    

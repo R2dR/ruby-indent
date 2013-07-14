@@ -1,20 +1,5 @@
 require_relative './spec_helper'
 
-RSpec::Core::ExampleGroup.class_eval do
-	class << self
-		def indent(text="")
-			let(:rboo) do 
-				rboo = RBoo.text(text)
-				rboo.indent
-				rboo
-			end
-			let(:result) do
-				rboo.output
-			end
-		end
-	end
-end
-	
 describe "Indent" do	
 	describe "do <<-HEREDOC" do
 		indent <<-EXAMPLE

@@ -2,6 +2,21 @@ require 'rspec'
 require_relative '../rboo'
 include RBeautify
 
+RSpec::Core::ExampleGroup.class_eval do
+	class << self
+		def indent(text="")
+			rboo = RBoo.text(text)
+			rboo.indent
+			let(:rboo) do 
+				rboo
+			end
+			let(:result) do
+				rboo.output
+			end
+		end
+	end
+end
+	
 module IndentationMethods
 	def test_indentation?(result, selector, length)
 		@expected_length = length
