@@ -46,14 +46,14 @@ module RBeautify
 end
 
 Array.class_eval do
-	def map_with_index(&block)
-		[].tap do |array|
-			self.each_with_index do |item, index|
-				array << yield(item, index)
-			end
-		end
-	end
-end  
+  def map_with_index(&block)
+    [].tap do |array|
+      self.each_with_index do |item, index|
+        array << yield(item, index)
+      end
+    end
+  end
+end
 
 String.class_eval do
 
@@ -195,33 +195,33 @@ RBeautify::RBoo.class_eval do
     @output ||= (@lines << "\n").join("\n")
   end
 
-	def do_not_indent?
-		end_of_source_code? || inside_comment_block? || inside_here_doc?
-	end
+  def do_not_indent?
+    end_of_source_code? || inside_comment_block? || inside_here_doc?
+  end
 
   def indent
     init_vars
     @line_source.each_line do |line|
       line.chomp!
 
-			case
-			when do_not_indent?
-				handle_nonindent_cases(line)
-			when is_continuing_line?(line)
-	      #not inside block comment or here doc
+      case
+      when do_not_indent?
+        handle_nonindent_cases(line)
+      when is_continuing_line?(line)
+        #not inside block comment or here doc
         @continued_line_array.push line
       else
-	      eval_line_of_source_code(concat_continued_lines(line))
-			end		
-  	end
+        eval_line_of_source_code(concat_continued_lines(line))
+      end
+    end
     output
   end
-  	    
+
   def handle_nonindent_cases(line)
     #special cases & conditions
     case
     when end_of_source_code?
-      output_line(line, :indent=>false)      
+      output_line(line, :indent=>false)
     when inside_here_doc?
       #note: HERE DOC terminators must be on there own line
       # the below regex works for all terminators
@@ -251,13 +251,13 @@ RBeautify::RBoo.class_eval do
   def split_by_semicolons(line)
     line.squeeze(';').split(/;/).map(&:strip)
   end
-  
+
   def prepend_space_to_all_but_first(lines)
     lines.map_with_index do |line, index|
-    	index == 0 ? line : " #{line}"
+      index == 0 ? line : " #{line}"
     end
   end
-  
+
   def eval_line_of_source_code(original_line)
     if original_line.empty?
       output_line("", :indent=>false)
@@ -281,20 +281,20 @@ RBeautify::RBoo.class_eval do
     end
 
     splitlines = prepend_space_to_all_but_first(
-    	split_by_semicolons(original_line.expunge)
+      split_by_semicolons(original_line.expunge)
     )
     counts = Struct.new(:predents, :postdents).new(0,0)
     splitlines.each do |line|
-	    next if line.empty?
-  	  break if is_comment_line?(line)
-    	scan_line_for_indent_symbols(line, counts)
-		end 
+      next if line.empty?
+      break if is_comment_line?(line)
+      scan_line_for_indent_symbols(line, counts)
+    end
 
     @tab_count += counts.predents
     output_line(original_line, :indent=>true)
     @tab_count += counts.postdents
   end
-  
+
   def scan_line_for_indent_symbols(line, counts)
     _scan_line = line.dup
     # delete end-of-line comments
@@ -335,7 +335,7 @@ RBeautify::RBoo.class_eval do
       #MUST sub with a space, not a blank!
       _scan_line = _scan_line.sub(first.regex, ' ')
     end
-  end  
+  end
 end
 
 module RBeautify
