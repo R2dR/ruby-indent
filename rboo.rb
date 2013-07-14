@@ -132,9 +132,10 @@ RBeautify::RBoo.class_eval do
     @inside_comment_block = false
     @inside_here_doc_term = nil
     @inside_source_code = true
-    @multi_line_array = []
+    @continued_line_array = []
     @tab_count = 0
-    @output = []
+    @lines = []
+    @output = nil
   end
 
   def indention(tabs = @tab_count)
@@ -154,14 +155,13 @@ RBeautify::RBoo.class_eval do
   END_SOURCE_CODE_REGEX = /^__END__/
   CONTINUING_LINE_REGEX = /^(.*)\\\s*(#.*)?$/
   COMMENT_LINE_REGEX = /^\s*#/
-  HERE_DOC_REGEX = /(=|\{|\bdo|^)\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
+  HERE_DOC_REGEX = /(?:=|\{|\bdo|^)\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
   HERE_DOC_START_REGEX = /^\s*<<-?\s*("([^"]+)|'([^']+)|([_\w]+))/
-
   # careful! here doc can be confused with array assignment, ie array<<'RUBY'
   # this may not be useful because we want to
 
   def scan_here_doc_term(line)
-    scan = line.scan(HERE_DOC_START_REGEX).flatten[2..-1] #yields array or nil
+    scan = line.scan(HERE_DOC_REGEX).flatten[1..-1] #yields array or nil
     scan && scan.compact.first
   end
   def is_continuing_line?(line)
@@ -172,23 +172,23 @@ RBeautify::RBoo.class_eval do
     line =~ COMMENT_LINE_REGEX
   end
   def is_here_doc_start?(line)
-    line =~ HERE_DOC_START_REGEX
+    line =~ HERE_DOC_REGEX
   end
   
   def write_line(line)
-  	@output << line
+  	@lines << line
   end
   
-  def flush_output
-    (@output << "\n").join("\n")
+  def output
+    @output ||= (@lines << "\n").join("\n")
   end
 	
 	def output_line(line, opts={:indent=>false})
-    unless @multi_line_array.empty?
-      @multi_line_array.each do |ml|
+    unless @continued_line_array.empty?
+      @continued_line_array.each do |ml|
         write_line(opts[:indent] ? indent_line(ml) : ml)
       end
-      @multi_line_array.clear
+      @continued_line_array.clear
     else
 	    write_line(opts[:indent] ? indent_line(line) : line)
 	  end
@@ -199,7 +199,6 @@ RBeautify::RBoo.class_eval do
     @line_source.each_line do |line|
       line.chomp!
       @current_line = line.dup
-
       #special cases & conditions
       if !inside_source_code?
         output_line(line, :indent=>false)
@@ -226,26 +225,28 @@ RBeautify::RBoo.class_eval do
      	
       #not inside block comment or here doc
       if is_continuing_line?(line)
-        @multi_line_array.push line
+        @continued_line_array.push line
         next
       end
       
-      eval_line combined_lines(line)
+      eval_indentation concat_continued_lines(line)
     end
 
-		flush_output
+		output
   end
   
-  def combined_lines(line)
-    return line unless @multi_line_array.length > 0
-    @multi_line_array.push line
-    @multi_line_array.inject("")do|str, item|
+  def concat_continued_lines(line)
+    return line unless @continued_line_array.length > 0
+    @continued_line_array.push line
+    @continued_line_array.inject("")do|str, item|
       str += item.sub(CONTINUING_LINE_REGEX, '\1')
     end
   end
   
-  def eval_line(original_line)
+  def eval_indentation(original_line)
   	line = original_line.strip
+		#lines = original_line.purged.squeeze(';').split(/;/).map(&:strip)
+		#counts = Struct.new(:indents, :outdents, :post_outdents).new
     case
     when line.empty?
     	output_line("", :indent=>false)

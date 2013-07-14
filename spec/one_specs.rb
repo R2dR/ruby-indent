@@ -1,18 +1,31 @@
 require_relative './spec_helper'
 
-describe "Indent" do
 
-	describe "indenting with __END__ inside HERE DOC" do
-		rboo = RBoo.text %q{
-			<<-RUBY
-			__END__
-			RUBY
-		}.left_adjust(0)
-		rboo.indent
-		
-		it "does not indicate end of source" do
-			rboo.source_code_ended?.should_not be_true
+describe RBoo do
+	rboo = RBoo.text("")
+	it "recognizes Here Doc starts and term" do
+		["<<HERE", "<<-HERE", "<<'HERE'", "<<-'HERE'", '<<"HERE"',
+			'<<-"HERE"'
+		].each do |phrase|
+			rboo.is_here_doc_start?(phrase).should be_true
+			rboo.scan_here_doc_term(phrase).should == 'HERE'
+		end
+	end	
+	it "recognizes more complex HERE DOC starts and terms" do
+		[
+			"do <<HERE", "out =<<HERE"
+		].each do |phrase|
+			rboo.is_here_doc_start?(phrase).should be_true
+			rboo.scan_here_doc_term(phrase).should == 'HERE'
 		end		
+	end
+	it "does not accept invalid HERE DOC starts" do
+		[
+			"array<<HERE", "ar << 'HERE'"
+		].each do |phrase|
+			rboo.is_here_doc_start?(phrase).should be_false
+		end
 	end
 	
 end
+
