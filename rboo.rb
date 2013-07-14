@@ -45,6 +45,16 @@ module RBeautify
   end
 end
 
+Array.class_eval do
+	def map_with_index(&block)
+		[].tap do |array|
+			self.each_with_index do |item, index|
+				array << yield(item, index)
+			end
+		end
+	end
+end  
+
 String.class_eval do
 
   INLINE_CLOSURES = [
@@ -131,6 +141,7 @@ RBeautify::RBoo.class_eval do
   end
 
   def inside_source_code?() @inside_source_code end
+  def end_of_source_code?() !@inside_source_code end
   def inside_comment_block?() @inside_comment_block end
   def inside_here_doc?() !!@inside_here_doc_term end
 
@@ -147,7 +158,7 @@ RBeautify::RBoo.class_eval do
   def is_comment_line?(line)
     line =~ /^\s*#/
   end
-  def is_end_source_line?(line)
+  def is_end_of_source_code_line?(line)
     line =~ /^__END__/
   end
   def is_here_doc_start?(line)
@@ -184,58 +195,70 @@ RBeautify::RBoo.class_eval do
     @output ||= (@lines << "\n").join("\n")
   end
 
+	def do_not_indent?
+		end_of_source_code? || inside_comment_block? || inside_here_doc?
+	end
 
   def indent
     init_vars
     @line_source.each_line do |line|
       line.chomp!
 
-      #special cases & conditions
-      if !inside_source_code?
-        output_line(line, :indent=>false)
-        next
-      end
-
-      if inside_here_doc?
-        #note: HERE DOC terminators must be on there own line
-        # the below regex works for all terminators
-        if is_here_doc_terminator?(line)
-          @inside_here_doc_term = nil
-          @tab_count -= 1
-          output_line(line, :indent=>true)
-        else
-          output_line(line, :indent=>false)
-        end
-        next
-      elsif inside_comment_block?
-        if(line.strip =~ /^=end/)
-          @inside_comment_block = false
-        end
-        output_line(line, :indent=>false)
-        next
-       end
-
-      #not inside block comment or here doc
-      if is_continuing_line?(line)
+			case
+			when do_not_indent?
+				handle_nonindent_cases(line)
+			when is_continuing_line?(line)
+	      #not inside block comment or here doc
         @continued_line_array.push line
-        next
-      end
-
-      eval_source_line(concat_continued_lines(line))
-    end
-
+      else
+	      eval_line_of_source_code(concat_continued_lines(line))
+			end		
+  	end
     output
+  end
+  	    
+  def handle_nonindent_cases(line)
+    #special cases & conditions
+    case
+    when end_of_source_code?
+      output_line(line, :indent=>false)      
+    when inside_here_doc?
+      #note: HERE DOC terminators must be on there own line
+      # the below regex works for all terminators
+      if is_here_doc_terminator?(line)
+        @inside_here_doc_term = nil
+        @tab_count -= 1
+        output_line(line, :indent=>true)
+      else
+        output_line(line, :indent=>false)
+      end
+    when inside_comment_block?
+      if(line.strip =~ /^=end/)
+        @inside_comment_block = false
+      end
+      output_line(line, :indent=>false)
+    end
   end
 
   def concat_continued_lines(line)
     return line unless @continued_line_array.length > 0
     @continued_line_array.push line
-    @continued_line_array.inject("")do|str, item|
-      str += item.sub(CONTINUING_LINE_REGEX, '\1')
+    @continued_line_array.inject("")do|str, cline|
+      str += cline.sub(CONTINUING_LINE_REGEX, '\1')
     end
   end
 
-  def eval_source_line(original_line)
+  def split_by_semicolons(line)
+    line.squeeze(';').split(/;/).map(&:strip)
+  end
+  
+  def prepend_space_to_all_but_first(lines)
+    lines.map_with_index do |line, index|
+    	index == 0 ? line : " #{line}"
+    end
+  end
+  
+  def eval_line_of_source_code(original_line)
     if original_line.empty?
       output_line("", :indent=>false)
       return
@@ -243,7 +266,7 @@ RBeautify::RBoo.class_eval do
     stripline = original_line.strip
     #guard for special beginning-of-line cases that void further indentation analysis
     case
-    when is_end_source_line?(stripline)
+    when is_end_of_source_code_line?(stripline)
       @inside_source_code = false
       output_line(original_line, :indent=>false)
       return
@@ -257,59 +280,62 @@ RBeautify::RBoo.class_eval do
       return
     end
 
-    lines = original_line.expunge.squeeze(';').split(/;/).map(&:strip)
-    lines.each_with_index do |line, index|
-      lines[index] = " #{lines[index]}" if index > 0
-    end
+    splitlines = prepend_space_to_all_but_first(
+    	split_by_semicolons(original_line.expunge)
+    )
     counts = Struct.new(:predents, :postdents).new(0,0)
-    lines.each do |line|
-      next if line.empty?
-      break if is_comment_line?(line)
+    splitlines.each do |line|
+	    next if line.empty?
+  	  break if is_comment_line?(line)
+    	scan_line_for_indent_symbols(line, counts)
+		end 
 
-      # delete end-of-line comments
-      line.sub!(/#[^\"]+$/,"")
-      # convert quotes
-      line.gsub!(/\\\"/,"'")
-
-      #find first occurrence of indent, outdent, postdent or inside-special-case
-      _scan_line = line.dup
-      loop do
-        first = Struct.new(:pos, :regex).new(_scan_line.length + 1)
-        DENTS.keys.each do |regex|
-          if (pos = (_scan_line =~ regex)) && line =~ regex && pos < first.pos
-            first.regex = regex
-            first.pos = pos
-          end
-        end
-        if (pos = (_scan_line =~ HERE_DOC_REGEX)) && line =~ HERE_DOC_REGEX && pos < first.pos
-          first.regex = :heredoc
-          first.pos = pos
-        end
-
-        case first.regex
-        when nil then break
-        when :heredoc
-          @inside_here_doc_term = scan_here_doc_term(_scan_line)
-          counts.postdents += 1
-          break
-        else
-          DENTS[first.regex].each do |type, count|
-            case type
-            when :predent then counts.predents += count
-            when :postdent then counts.postdents += count
-            end
-          end
-        end
-
-        #remove the regex from the _scan_line
-        #MUST sub with a space, not a blank!
-        _scan_line = _scan_line.sub(first.regex, ' ')
-      end
-    end
     @tab_count += counts.predents
     output_line(original_line, :indent=>true)
     @tab_count += counts.postdents
   end
+  
+  def scan_line_for_indent_symbols(line, counts)
+    _scan_line = line.dup
+    # delete end-of-line comments
+    _scan_line.sub!(/#[^\"]+$/,"")
+    # convert quotes
+    _scan_line.gsub!(/\\\"/,"'")
+
+    #find first occurrence of indent, outdent, postdent or inside-special-case
+    loop do
+      first = Struct.new(:pos, :regex).new(_scan_line.length + 1)
+      DENTS.keys.each do |regex|
+        if (pos = (_scan_line =~ regex)) && line =~ regex && pos < first.pos
+          first.regex = regex
+          first.pos = pos
+        end
+      end
+      if (pos = (_scan_line =~ HERE_DOC_REGEX)) && line =~ HERE_DOC_REGEX && pos < first.pos
+        first.regex = :heredoc
+        first.pos = pos
+      end
+
+      case first.regex
+      when nil then break
+      when :heredoc
+        @inside_here_doc_term = scan_here_doc_term(_scan_line)
+        counts.postdents += 1
+        break
+      else
+        DENTS[first.regex].each do |type, count|
+          case type
+          when :predent then counts.predents += count
+          when :postdent then counts.postdents += count
+          end
+        end
+      end
+
+      #remove the regex from the _scan_line
+      #MUST sub with a space, not a blank!
+      _scan_line = _scan_line.sub(first.regex, ' ')
+    end
+  end  
 end
 
 module RBeautify
