@@ -130,48 +130,34 @@ RBeautify::RBoo.class_eval do
     @output = nil
   end
 
-  def indention(tabs = @tab_count)
-    tabs <= 0 ? "" : TABSTR * TABSIZE * tabs
-  end
-
-  def indent_line(line, tabs = @tab_count)
-    line.strip!
-    line.length > 0 ? indention(tabs) + line : line
-  end
-
-  def source_code_ended?() !@inside_source_code end
   def inside_source_code?() @inside_source_code end
   def inside_comment_block?() @inside_comment_block end
   def inside_here_doc?() !!@inside_here_doc_term end
 
-  END_SOURCE_CODE_REGEX = /^__END__/
-  CONTINUING_LINE_REGEX = /^(.*)\\\s*(#.*)?$/
-  COMMENT_LINE_REGEX = /^\s*#/
+  CONTINUING_LINE_REGEX = /^(.*)\\\s*(?:#.*)?$/
   HERE_DOC_REGEX = /(?:(?:=|^)\s*<<-?|<<-)\s*(?:'([^'\s]+)|"([^"\s]+)|([^\s]+))/
   # careful! here doc can be confused with array assignment, ie array<<'RUBY'
   # this may not be useful because we want to
 
-  def scan_here_doc_term(line)
-    line.scan(HERE_DOC_REGEX).flatten.compact.first
-  end
   def is_continuing_line?(line)
     line.expunge =~ /^[^#]*\\\s*(#.*)?$/
     #first use expunge to eliminate inline closures 
     #that may contain comment char '#'
   end
   def is_comment_line?(line)
-    line =~ COMMENT_LINE_REGEX
+    line =~ /^\s*#/
   end
+  def is_end_source_line?(line)
+  	line =~ /^__END__/
+  end  
   def is_here_doc_start?(line)
     line =~ HERE_DOC_REGEX
   end
-
-  def write_line(line)
-    @lines << line
+  def scan_here_doc_term(line)
+    line.scan(HERE_DOC_REGEX).flatten.compact.first
   end
-
-  def output
-    @output ||= (@lines << "\n").join("\n")
+  def is_here_doc_terminator?(line)
+    line =~ /^\s*#{@inside_here_doc_term}\b/  	
   end
 
   def output_line(line, opts={:indent=>false})
@@ -184,12 +170,26 @@ RBeautify::RBoo.class_eval do
       write_line(opts[:indent] ? indent_line(line) : line)
     end
   end
+  def indent_prefix(tabs = @tab_count)
+    tabs <= 0 ? "" : TABSTR * TABSIZE * tabs
+  end
+  def indent_line(line, tabs = @tab_count)
+    line.strip!
+    line.length > 0 ? indent_prefix(tabs) + line : line
+  end
+  def write_line(line)
+    @lines << line
+  end
+  def output
+    @output ||= (@lines << "\n").join("\n")
+  end
+
 
   def indent
     init_vars
     @line_source.each_line do |line|
       line.chomp!
-      @current_line = line.dup
+      
       #special cases & conditions
       if !inside_source_code?
         output_line(line, :indent=>false)
@@ -199,7 +199,7 @@ RBeautify::RBoo.class_eval do
       if inside_here_doc?
         #note: HERE DOC terminators must be on there own line
         # the below regex works for all terminators
-        if line =~ /^\s*#{@inside_here_doc_term}\b/
+        if is_here_doc_terminator?(line)
           @inside_here_doc_term = nil
           @tab_count -= 1
           output_line(line, :indent=>true)
@@ -221,7 +221,7 @@ RBeautify::RBoo.class_eval do
         next
       end
 
-      eval_source_line concat_continued_lines(line)
+      eval_source_line(concat_continued_lines(line))
     end
 
     output
@@ -243,7 +243,7 @@ RBeautify::RBoo.class_eval do
     stripline = original_line.strip
     #guard for special beginning-of-line cases that void further indentation analysis
     case
-    when stripline =~ END_SOURCE_CODE_REGEX
+    when is_end_source_line?(stripline)
       @inside_source_code = false
       output_line(original_line, :indent=>false)
       return
@@ -264,7 +264,7 @@ RBeautify::RBoo.class_eval do
     counts = Struct.new(:predents, :postdents).new(0,0)
     lines.each do |line|
       next if line.empty?
-      break if line =~ /^\s*#/
+      break if is_comment_line?(line)
 
       # delete end-of-line comments
       line.sub!(/#[^\"]+$/,"")

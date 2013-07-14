@@ -120,7 +120,7 @@ describe "Indent" do
 
     it "double indents the double_true_condition" do
       result.should double_indent(:double_true_condition)
-      rboo.should_not be_error
+      rboo.should_not mismatch
     end
     it "single indents the 'if other?' line" do
       result.should single_indent('if other?')
@@ -275,7 +275,7 @@ describe RBoo do
 				=end
     }.left_adjust(0)
     it "does not indicate end of source" do
-      rboo.source_code_ended?.should_not be_true
+      rboo.inside_source_code?.should be_true
     end
   end
 
@@ -286,7 +286,7 @@ describe RBoo do
       HEREDOC
     }.left_adjust(0)
     it "does not indicate end of source" do
-      rboo.source_code_ended?.should_not be_true
+      rboo.inside_source_code?.should be_true
     end
   end
 
