@@ -20,7 +20,11 @@ end
 module IndentationMethods
 	def test_indentation?(result, selector, length)
 		@expected_length = length
- 	 	@lines = result.split(/\n/).grep(/#{selector}/)
+		if selector.is_a?(Fixnum)
+			@lines = (line = result.split(/\n/)[selector-1]) ? [line] : []
+		else
+	 	 	@lines = result.split(/\n/).grep(/#{selector}/)
+	 	end
  	 	case @lines.size
  	 	when 1
  	 		(@actual_length = (@test_line = @lines.first).indention_spaces) == @expected_length
@@ -38,6 +42,17 @@ module IndentationMethods
 	end
 end
 
+RSpec::Matchers.define :mismatch do 
+	match do |rboo|
+		rboo.tab_count != 0
+	end
+	failure_message_for_should do |actual|
+		"tab_count == #{actual.tab_count}"
+	end
+	failure_message_for_should_not do |actual|
+		"tab_count == #{actual.tab_count}"
+	end
+end
 RSpec::Matchers.define :indent do |line_selector|
 	include IndentationMethods
  	match do |result|
